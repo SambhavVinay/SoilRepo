@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather & Soil Moisture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #c9d8c2, #d4dfd7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+        }
+        .card {
+            width: 90%;
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(15px);
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+        }
+        h2 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .search {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            outline: none;
+            background: rgba(255, 255, 255, 0.4);
+            color: black;
+            text-align: center;
+            transition: 0.3s;
+        }
+        input::placeholder {
+            color: rgba(0, 0, 0, 0.5);
+        }
+        button {
+            padding: 12px;
+            font-size: 16px;
+            border: none;
+            background: rgba(50, 168, 82, 0.8);
+            color: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+        }
+        button:hover {
+            background: rgba(50, 168, 82, 1);
+        }
+        .weather {
+            display: none;
+            opacity: 0;
+            animation: fadeIn 0.8s ease-in-out forwards;
+        }
+        .details {
+            margin-top: 20px;
+            text-align: left;
+            font-size: 18px;
+        }
+        .col {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .error {
+            color: red;
+            font-size: 14px;
+            display: none;
+            margin-top: 10px;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🌍 Weather & Soil Moisture</h2>
+        <div class="search">
+            <input type="text" id="city" placeholder="Enter city name">
+            <button onclick="getWeather()">🔍</button>
+        </div>
+        <div class="error">Invalid city name ❌</div>
+        <div class="weather">
+            <h1 class="city">City</h1>
+            <h2 class="temp">--°C 🌡️</h2>
+            <p class="weather-condition">--</p>
+            <div class="details">
+                <div class="col">💧 Humidity: <span class="humidity">--%</span></div>
+                <div class="col">🌬️ Wind Speed: <span class="wind">-- km/h</span></div>
+                <div class="col">🌱 Soil Moisture: <span class="soil">--%</span></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const weatherApiKey = "2b8761bb0a60befe5657a77a6fe12b17";
+        const agroApiKey = "619bf08d7789379eee6fb5e659b2979c";
+        const weatherApiUrl = "https://api.openweathermap.org/data/2.5/weather?units=metric&q=";
+        const agroApiUrl = "https://api.agromonitoring.com/agro/1.0/soil?lat={LAT}&lon={LON}&appid=" + agroApiKey;
+
+        async function getWeather() {
+            const city = document.getElementById("city").value;
+            if (!city) {
+                alert("Please enter a city name!");
+                return;
+            }
+
+            try {
+                const weatherResponse = await fetch(`${weatherApiUrl}${city}&appid=${weatherApiKey}`);
+                if (weatherResponse.status == 404) {
+                    document.querySelector(".error").style.display = "block";
+                    document.querySelector(".weather").style.display = "none";
+                    return;
+                }
+                const weatherData = await weatherResponse.json();
+
+                let lat = weatherData.coord.lat;
+                let lon = weatherData.coord.lon;
+                const soilResponse = await fetch(agroApiUrl.replace("{LAT}", lat).replace("{LON}", lon));
+                const soilData = await soilResponse.json();
+                let soilMoisture = soilData.moisture ? (soilData.moisture * 100).toFixed(2) + "%" : "N/A";
+
+                let weatherEmoji = {
+                    "Clouds": "☁️",
+                    "Clear": "☀️",
+                    "Rain": "🌧️",
+                    "Drizzle": "🌦️",
+                    "Mist": "🌫️"
+                }[weatherData.weather[0].main] || "❓";
+
+                document.querySelector(".city").innerHTML = weatherData.name;
+                document.querySelector(".temp").innerHTML = weatherData.main.temp + "°C " + weatherEmoji;
+                document.querySelector(".weather-condition").innerHTML = weatherData.weather[0].description;
+                document.querySelector(".humidity").innerHTML = weatherData.main.humidity + "%";
+                document.querySelector(".wind").innerHTML = weatherData.wind.speed + " km/h";
+                document.querySelector(".soil").innerHTML = soilMoisture + " 💦";
+
+                document.querySelector(".weather").style.display = "block";
+                document.querySelector(".error").style.display = "none";
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                alert("Failed to fetch data. Check API key or internet connection.");
+            }
+        }
+    </script>
+</body>
+</html>
